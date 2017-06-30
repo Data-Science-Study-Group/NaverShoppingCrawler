@@ -10,7 +10,7 @@ import testHTMLsrc
 """
 2017. 06. 29 Developed by KYT
 NaverShopping Crawler
-V 1.10
+V 1.11
 
 
 class info--
@@ -47,6 +47,8 @@ def getSeller(goods):
     try:
         seller = (goods.find_all("a", class_="mall_img"))[0].contents[0]
         seller = preProcessing(seller)
+        if seller == '' :
+            raise(AttributeError)
     except:
         try:
             sellertest = goods.find_all("p", class_="mall_txt")
@@ -54,9 +56,12 @@ def getSeller(goods):
             seller = preProcessing(seller)
 
             if seller == "":
-                seller = sellertest[0].contents[1].contents[0].attrs["alt"]
+                seller = sellertest[0].contents[1].attrs["title"]
         except:
-            print("\n\nerror on getSeller\n\n\n{}\n\n\nerror\n\n".format(goods))
+            try:
+                seller = sellertest[0].contents[1].contents[0].attrs["alt"]
+            except:
+                print("\n\nerror on getSeller\n\n\n{}\n\n\nerror\n\n".format(goods))
     return seller
 
 def getDeliveryPrice(goods):
@@ -81,49 +86,56 @@ def getDeliveryPrice(goods):
 
 def main():
     print("""
-    Naver Shopping Crawler (V1.10)
+    Naver Shopping Crawler (V1.11)
     Developed by StackCat
     """)
-    while True:
-        keyword = input("Input Keyword (--quit : exit) :")
-        # url encode
-        fnm = keyword
-        keyword.replace(" ","+")
-        keyword = parse.quote(keyword)
+    keyword = input("Input Keyword (--quit : exit) :")
+    maxPaging = input("Input maxPaging : ")
+    # url encode
+    fnm = keyword
+    keyword.replace(" ","+")
+    keyword = parse.quote(keyword)
 
-        if keyword =="--quit": exit()
-        with open(fnm + '.json', 'w', encoding='utf8') as f:
-            result = []
-            for pagingIndex in range(1,11):
+    if keyword =="--quit": exit()
+    with open(fnm + '.json', 'w', encoding='utf8') as f:
+        result = []
+        for pagingIndex in range(1,int(maxPaging)+1):
 
-                # ban 방지용
-                waitTime = random.randint(3,7)
-                print("keyword:"+fnm+" | pagingIndex : "+str(pagingIndex) + " | wait : "+str(waitTime))
+            # ban 방지용
+            waitTime = random.randint(10,15)
+            print("keyword:"+fnm+" | pagingIndex : "+str(pagingIndex) + " | wait : "+str(waitTime))
 
-                url = "http://shopping.naver.com/search/all.nhn?query=" + keyword + "&pagingIndex="+str(pagingIndex)+"&pagingSize=80&viewType=list&sort=rel&frm=NVSHATC"
-                bs = BeautifulSoup(urllib.request.urlopen(url),"html.parser")
+            url = "http://shopping.naver.com/search/all.nhn?query=" + keyword + "&pagingIndex="+str(pagingIndex)+"&pagingSize=80&viewType=list&sort=rel&frm=NVSHATC"
+            bs = BeautifulSoup(urllib.request.urlopen(url),"html.parser")
 
-                goods_list_result = bs.findAll("ul", class_="goods_list")
-                i =0
+            goods_list_result = bs.findAll("ul", class_="goods_list")
+            i =0
 
-                for ultag in goods_list_result:
-                    for goods in ultag.contents:
-                        if goods == "\n" : continue
-                        name = getName(goods)
-                        price = getPrice(goods)
-                        seller = getSeller(goods)
-                        DPrice = getDeliveryPrice(goods)
-                        data = { 'name':parse.unquote(name), 'price':parse.unquote(price), 'seller':parse.unquote(seller), 'DeliveryPrice':parse.unquote(DPrice) }
-                        result.append(data)
-                if len(result) == 0 :
-                    print("검색결과가 없습니다.")
-                    break
+            for ultag in goods_list_result:
+                for goods in ultag.contents:
+                    name = price = seller = DPrice = 0
+                    data = {}
+                    if goods == "\n" : continue
+                    name = getName(goods)
+                    price = getPrice(goods)
+                    seller = getSeller(goods)
+                    DPrice = getDeliveryPrice(goods)
+                    data = { 'name':parse.unquote(name), 'price':parse.unquote(price), 'seller':parse.unquote(seller), 'DeliveryPrice':parse.unquote(DPrice) }
+                    result.append(data)
+            if len(data) == 0 :
+                print("검색결과가 없습니다.")
+                break
 
-                # ban 방지용
+            # ban 방지용
+            if pagingIndex % 11 == 0 :
+                print("11페이지마다 조금 더 오래 쉽니다(25초, ban 방지용)")
+                sleep(25)
+            elif pagingIndex < maxPaging :
                 sleep(waitTime)
 
-            finalData = { 'size' : len(result), 'result': result }
-            json.dump(finalData,f, ensure_ascii=False)
+
+        finalData = { 'size' : len(result), 'result': result }
+        json.dump(finalData,f, ensure_ascii=False)
 
 if __name__ == "__main__":
     main()
