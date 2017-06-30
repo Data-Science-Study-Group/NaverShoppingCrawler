@@ -54,9 +54,12 @@ def getSeller(goods):
     return seller
 
 def main():
-
+    print("""
+    Naver Shopping Crawler (V1.0)
+    Developed by StackCat
+    """)
     while True:
-        keyword = input("(--quit : exit)")
+        keyword = input("Input Keyword (--quit : exit) :")
         # url encode
         fnm = keyword
         keyword.replace(" ","+")
@@ -66,9 +69,9 @@ def main():
         with open(fnm + '.json', 'w', encoding='utf8') as f:
             result = []
             for pagingIndex in range(1,11):
+                # ban 방지용
                 waitTime = random.randint(3,7)
                 print("keyword:"+fnm+" | pagingIndex : "+str(pagingIndex) + " | wait : "+str(waitTime))
-                sleep(waitTime)
 
                 url = "http://shopping.naver.com/search/all.nhn?query=" + keyword + "&pagingIndex="+str(pagingIndex)+"&pagingSize=80&viewType=list&sort=rel&frm=NVSHATC"
                 bs = BeautifulSoup(urllib.request.urlopen(url),"html.parser")
@@ -89,6 +92,11 @@ def main():
                                 continue
                         data = { 'name':parse.unquote(name), 'price':parse.unquote(price), 'seller':parse.unquote(seller) }
                         result.append(data)
+                if len(result) == 0 :
+                    print("검색결과가 없습니다.")
+                    break
+                # ban 방지용
+                sleep(waitTime)
             finalData = { 'size' : len(result), 'result': result }
             json.dump(finalData,f, ensure_ascii=False)
 
