@@ -6,11 +6,11 @@ import json
 import urllib
 import random
 from time import sleep
-import testHTMLsrc
+
 """
 2017. 06. 29 Developed by KYT
 NaverShopping Crawler
-V 1.11
+V 1.13
 
 
 class info--
@@ -26,18 +26,53 @@ def preProcessing(str):
     result = re.sub("\t","",result)
     return result
 
+def getDisplayedName(goods):
+    try:
+        nameSet = goods.find_all("a", class_="tit")
+        name = nameSet[0]['title']
+        name = preProcessing(name)
+    except:
+        name = nameSet[0].contents[0]
+    return name
+
 def getName(goods):
-    name = (goods.find_all("a", class_="tit"))[0].contents[0]
-    name = preProcessing(name)
-    return name;
+    sleepTime = random.randint(3,7)
+    displayedName = getDisplayedName(goods)
+    metaURL = getMetaURL(goods, sleepTime)
+
+    if metaURL.find("storefarm.naver.com") > 0 :
+        #metaURL = metaURL.encode("utf-8")
+        bsRealName = BeautifulSoup(urllib.request.urlopen(metaURL), "html.parser")
+        realNameSet = bsRealName.find_all("dt", class_="prd_name")
+        realName = realNameSet[0].text
+        return realName
+    else :
+        return displayedName
+
+def getMetaURL(goods, sleepTime=0):
+    print("[getMetaURL] ip ban 방지를 위해 sleep합니다......({} sec)".format(sleepTime))
+    sleep(sleepTime)
+    href = (goods.find_all("a", class_="tit"))[0].attrs["href"]
+    bsMeta = BeautifulSoup(urllib.request.urlopen(href), 'html.parser')
+    meta = bsMeta.find("meta",property="og:url")
+
+    #metaURL = meta["content"] if meta is not None else href
+    if meta is not None:
+        metaURL = meta["content"]
+    else:
+        metaURLSet = bsMeta.find_all("div", class_="naver-splugin")
+        metaURL = href if len(metaURLSet) == 0 else metaURLSet[0]["data-url"]
+    return metaURL
 
 def getPrice(goods):
     # price have two kind
     try:
-        price = (goods.find_all("span", class_="num _price_reload"))[0].text
+        priceSet = goods.find_all("span", class_="num _price_reload")
+        price = priceSet[0].text
     except:
         try:
-            price = (goods.find_all("span", class_="num"))[0].text
+            priceSet = goods.find_all("span", class_="num")
+            price = priceSet[0].text
         except:
             print("\n\nerror on getPrice\n\n\n{}\n\n\nerror\n\n".format(goods))
     return price
@@ -45,21 +80,22 @@ def getPrice(goods):
 def getSeller(goods):
     # seller have three kind
     try:
-        seller = (goods.find_all("a", class_="mall_img"))[0].contents[0]
+        sellerSet = goods.find_all("a", class_="mall_img")
+        seller = sellerSet[0].contents[0]
         seller = preProcessing(seller)
         if seller == '' :
             raise(AttributeError)
     except:
         try:
-            sellertest = goods.find_all("p", class_="mall_txt")
-            seller = (goods.find_all("p", class_="mall_txt"))[0].contents[1].text
+            sellerSet = goods.find_all("p", class_="mall_txt")
+            seller = sellerSet[0].contents[1].text
             seller = preProcessing(seller)
 
             if seller == "":
-                seller = sellertest[0].contents[1].attrs["title"]
+                seller = goods.find_all("span", class_="mall_name")[0].text
         except:
             try:
-                seller = sellertest[0].contents[1].contents[0].attrs["alt"]
+                seller = sellerSet[0].contents[1].contents[0].attrs["alt"]
             except:
                 print("\n\nerror on getSeller\n\n\n{}\n\n\nerror\n\n".format(goods))
     return seller
@@ -67,17 +103,17 @@ def getSeller(goods):
 def getDeliveryPrice(goods):
     # DPrice have three kind  (someInt, free, null)
     try:
-        DPriceTest = (goods.find_all("ul", class_="mall_option"))
-        DPrice = (goods.find_all("ul", class_="mall_option"))[0].contents[1].text
-        if "네이버페이포인트" in DPrice:
-            DPrice = (goods.find_all("ul", class_="mall_option"))[0].contents[3].text
+        DPriceSet = (goods.find_all("ul", class_="mall_option"))
+        DPrice = DPriceSet[0].contents[1].text
+        if "배송비" not in DPrice:
+            DPrice = DPriceSet[0].contents[3].text
 
         DPrice = preProcessing(DPrice)
         DPrice = DPrice.replace("배송비 ","")
         DPrice = DPrice.replace("원", "")
     except:
         try:
-            if len(DPriceTest) == 0 :
+            if len(DPriceSet) == 0 :
                 DPrice = "정보없음"
         except:
             print("\n\nerror on getDeliveryPrice\n\n\n{}\n\n\nerror\n\n".format(goods))
@@ -86,7 +122,7 @@ def getDeliveryPrice(goods):
 
 def main():
     print("""
-    Naver Shopping Crawler (V1.11)
+    Naver Shopping Crawler (V1.13)
     Developed by StackCat
     """)
     keyword = input("Input Keyword (--quit : exit) :")
